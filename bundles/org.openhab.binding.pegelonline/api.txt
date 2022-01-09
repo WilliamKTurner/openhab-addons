@@ -1,0 +1,4 @@
+API Description:    https://www.pegelonline.wsv.de/webservice/guideRestapi
+Stations:           https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations.json
+Stations on River:  https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations.json?waters=LAHN
+Measure with UUID   https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations/47174d8f-1b8e-4599-8a59-b580dd55bc87/W/currentmeasurement.json
