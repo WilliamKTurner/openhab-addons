@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2021 Contributors to the openHAB project
+ * Copyright (c) 2010-2022 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -56,7 +56,7 @@ public class PegelOnlineHandler extends BaseThingHandler {
     private static final String STATIONS_URI = "https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations";
     private final Logger logger = LoggerFactory.getLogger(PegelOnlineHandler.class);
     private final List<Integer> warnLevels = new ArrayList<Integer>();
-    private @Nullable PegelOnlineConfiguration config;
+    private @Nullable PegelOnlineConfiguration configuration;
     private Optional<ScheduledFuture> schedule = Optional.empty();
     private HttpClient httpClient;
     private String stationUUID = UNKNOWN;
@@ -133,22 +133,22 @@ public class PegelOnlineHandler extends BaseThingHandler {
 
     private int getWarnLevel(Measure m) {
         int warningLevel = 0;
-        if (m.value > config.warningLevel1) {
+        if (m.value > configuration.warningLevel1) {
             warningLevel++;
         }
-        if (m.value > config.warningLevel2) {
+        if (m.value > configuration.warningLevel2) {
             warningLevel++;
         }
-        if (m.value > config.warningLevel3) {
+        if (m.value > configuration.warningLevel3) {
             warningLevel++;
         }
-        if (m.value > config.hq10) {
+        if (m.value > configuration.hq10) {
             warningLevel++;
         }
-        if (m.value > config.hq100) {
+        if (m.value > configuration.hq100) {
             warningLevel++;
         }
-        if (m.value > config.hqhqExtereme) {
+        if (m.value > configuration.hqhqExtereme) {
             warningLevel++;
         }
         return warningLevel;
@@ -156,22 +156,22 @@ public class PegelOnlineHandler extends BaseThingHandler {
 
     private int getWarnLevels() {
         int warningLevels = 0;
-        if (Integer.MAX_VALUE > config.warningLevel1) {
+        if (Integer.MAX_VALUE > configuration.warningLevel1) {
             warningLevels++;
         }
-        if (Integer.MAX_VALUE > config.warningLevel2) {
+        if (Integer.MAX_VALUE > configuration.warningLevel2) {
             warningLevels++;
         }
-        if (Integer.MAX_VALUE > config.warningLevel3) {
+        if (Integer.MAX_VALUE > configuration.warningLevel3) {
             warningLevels++;
         }
-        if (Integer.MAX_VALUE > config.hq10) {
+        if (Integer.MAX_VALUE > configuration.hq10) {
             warningLevels++;
         }
-        if (Integer.MAX_VALUE > config.hq100) {
+        if (Integer.MAX_VALUE > configuration.hq100) {
             warningLevels++;
         }
-        if (Integer.MAX_VALUE > config.hqhqExtereme) {
+        if (Integer.MAX_VALUE > configuration.hqhqExtereme) {
             warningLevels++;
         }
         return warningLevels;
@@ -209,28 +209,28 @@ public class PegelOnlineHandler extends BaseThingHandler {
 
     @Override
     public void initialize() {
-        config = getConfigAs(PegelOnlineConfiguration.class);
-        if (Integer.MAX_VALUE != config.warningLevel1) {
-            warnLevels.add(config.warningLevel1);
+        configuration = getConfigAs(PegelOnlineConfiguration.class);
+        if (Integer.MAX_VALUE != configuration.warningLevel1) {
+            warnLevels.add(configuration.warningLevel1);
         }
-        if (Integer.MAX_VALUE != config.warningLevel2) {
-            warnLevels.add(config.warningLevel2);
+        if (Integer.MAX_VALUE != configuration.warningLevel2) {
+            warnLevels.add(configuration.warningLevel2);
         }
-        if (Integer.MAX_VALUE != config.warningLevel3) {
-            warnLevels.add(config.warningLevel3);
+        if (Integer.MAX_VALUE != configuration.warningLevel3) {
+            warnLevels.add(configuration.warningLevel3);
         }
-        if (Integer.MAX_VALUE > config.hq10) {
-            warnLevels.add(config.hq10);
+        if (Integer.MAX_VALUE > configuration.hq10) {
+            warnLevels.add(configuration.hq10);
         }
-        if (Integer.MAX_VALUE > config.hq100) {
-            warnLevels.add(config.hq100);
+        if (Integer.MAX_VALUE > configuration.hq100) {
+            warnLevels.add(configuration.hq100);
         }
-        if (Integer.MAX_VALUE > config.hqhqExtereme) {
-            warnLevels.add(config.hqhqExtereme);
+        if (Integer.MAX_VALUE > configuration.hqhqExtereme) {
+            warnLevels.add(configuration.hqhqExtereme);
         }
-        stationUUID = config.uuid;
+        stationUUID = configuration.uuid;
         schedule = Optional
-                .of(scheduler.scheduleWithFixedDelay(this::measure, 0, config.refreshInterval, TimeUnit.MINUTES));
+                .of(scheduler.scheduleWithFixedDelay(this::measure, 0, configuration.refreshInterval, TimeUnit.MINUTES));
     }
 
     @Override
