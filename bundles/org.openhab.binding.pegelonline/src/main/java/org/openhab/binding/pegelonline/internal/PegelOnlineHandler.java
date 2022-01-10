@@ -25,7 +25,6 @@ import java.util.concurrent.TimeoutException;
 import javax.measure.quantity.Length;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.openhab.binding.pegelonline.internal.dto.Measure;
@@ -41,6 +40,7 @@ import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
+import org.openhab.core.types.State;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,7 +56,7 @@ public class PegelOnlineHandler extends BaseThingHandler {
     private static final String STATIONS_URI = "https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations";
     private final Logger logger = LoggerFactory.getLogger(PegelOnlineHandler.class);
     private final List<Integer> warnLevels = new ArrayList<Integer>();
-    private @Nullable PegelOnlineConfiguration configuration;
+    private Optional<PegelOnlineConfiguration> configuration = Optional.empty();
     private Optional<ScheduledFuture> schedule = Optional.empty();
     private HttpClient httpClient;
     private String stationUUID = UNKNOWN;
@@ -67,6 +67,10 @@ public class PegelOnlineHandler extends BaseThingHandler {
         httpClient = hc;
     }
 
+    private void updateChannelState(String channel, State st) {
+        updateState(new ChannelUID(thing.getUID(), channel), st);
+    }
+
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (command instanceof RefreshType) {
@@ -74,13 +78,13 @@ public class PegelOnlineHandler extends BaseThingHandler {
                 if (MEASURE_CHANNEL.equals(channelUID.getId())) {
                     QuantityType<Length> measure = QuantityType.valueOf(cache.get().value,
                             MetricPrefix.CENTI(SIUnits.METRE));
-                    updateState(new ChannelUID(thing.getUID(), MEASURE_CHANNEL), measure);
+                    updateChannelState(MEASURE_CHANNEL, measure);
                 } else if (TREND_CHANNEL.equals(channelUID.getId())) {
                     DecimalType trend = DecimalType.valueOf(Integer.toString(cache.get().trend));
-                    updateState(new ChannelUID(thing.getUID(), TREND_CHANNEL), trend);
+                    updateChannelState(TREND_CHANNEL, trend);
                 } else if (TIMESTAMP_CHANNEL.equals(channelUID.getId())) {
                     DateTimeType timestamp = DateTimeType.valueOf(cache.get().timestamp);
-                    updateState(new ChannelUID(thing.getUID(), TIMESTAMP_CHANNEL), timestamp);
+                    updateChannelState(TIMESTAMP_CHANNEL, timestamp);
                 }
             }
         }
@@ -95,34 +99,22 @@ public class PegelOnlineHandler extends BaseThingHandler {
                 // logger.info("update measure {}", cr.getContentAsString());
 
                 QuantityType<Length> measure = QuantityType.valueOf(m.value, MetricPrefix.CENTI(SIUnits.METRE));
-                ChannelUID measureCUID = new ChannelUID(thing.getUID(), MEASURE_CHANNEL);
-                updateState(measureCUID, measure);
-                logger.debug("{} update {}", measureCUID.getAsString(), measure.toFullString());
+                updateChannelState(MEASURE_CHANNEL, measure);
 
                 StringType trend = StringType.valueOf(getTrend(m));
-                ChannelUID trendCUID = new ChannelUID(thing.getUID(), TREND_CHANNEL);
-                updateState(trendCUID, trend);
-                logger.debug("{} update {}", trendCUID, trend.toFullString());
+                updateChannelState(TREND_CHANNEL, trend);
 
                 DateTimeType timestamp = DateTimeType.valueOf(m.timestamp);
-                ChannelUID timestampCUID = new ChannelUID(thing.getUID(), TIMESTAMP_CHANNEL);
-                updateState(timestampCUID, timestamp);
-                logger.debug("{} update {}", timestampCUID, timestamp.toFullString());
+                updateChannelState(TIMESTAMP_CHANNEL, timestamp);
 
                 StringType level = StringType.valueOf(getLevel(m));
-                ChannelUID levelCUID = new ChannelUID(thing.getUID(), LEVEL_CHANNEL);
-                updateState(levelCUID, level);
-                logger.debug("{} update {}", levelCUID, level.toFullString());
+                updateChannelState(LEVEL_CHANNEL, level);
 
                 DecimalType warningLevels = DecimalType.valueOf(Integer.toString(getWarnLevels()));
-                ChannelUID warningCUID = new ChannelUID(thing.getUID(), WARNING_LEVELS_CHANNEL);
-                updateState(warningCUID, warningLevels);
-                logger.debug("{} update {}", warningCUID, warningLevels.toFullString());
+                updateChannelState(WARNING_LEVELS_CHANNEL, warningLevels);
 
                 DecimalType actualWarnLevel = DecimalType.valueOf(Integer.toString(getWarnLevel(m)));
-                ChannelUID actualWarnLevelCUID = new ChannelUID(thing.getUID(), ACTUAL_WARNING_LEVEL_CHANNEL);
-                updateState(actualWarnLevelCUID, actualWarnLevel);
-                logger.debug("{} update {}", actualWarnLevelCUID, actualWarnLevel.toFullString());
+                updateChannelState(ACTUAL_WARNING_LEVEL_CHANNEL, actualWarnLevel);
 
                 updateStatus(ThingStatus.ONLINE);
             }
@@ -133,22 +125,22 @@ public class PegelOnlineHandler extends BaseThingHandler {
 
     private int getWarnLevel(Measure m) {
         int warningLevel = 0;
-        if (m.value > configuration.warningLevel1) {
+        if (m.value > configuration.get().warningLevel1) {
             warningLevel++;
         }
-        if (m.value > configuration.warningLevel2) {
+        if (m.value > configuration.get().warningLevel2) {
             warningLevel++;
         }
-        if (m.value > configuration.warningLevel3) {
+        if (m.value > configuration.get().warningLevel3) {
             warningLevel++;
         }
-        if (m.value > configuration.hq10) {
+        if (m.value > configuration.get().hq10) {
             warningLevel++;
         }
-        if (m.value > configuration.hq100) {
+        if (m.value > configuration.get().hq100) {
             warningLevel++;
         }
-        if (m.value > configuration.hqhqExtereme) {
+        if (m.value > configuration.get().hqhqExtereme) {
             warningLevel++;
         }
         return warningLevel;
@@ -156,22 +148,22 @@ public class PegelOnlineHandler extends BaseThingHandler {
 
     private int getWarnLevels() {
         int warningLevels = 0;
-        if (Integer.MAX_VALUE > configuration.warningLevel1) {
+        if (Integer.MAX_VALUE > configuration.get().warningLevel1) {
             warningLevels++;
         }
-        if (Integer.MAX_VALUE > configuration.warningLevel2) {
+        if (Integer.MAX_VALUE > configuration.get().warningLevel2) {
             warningLevels++;
         }
-        if (Integer.MAX_VALUE > configuration.warningLevel3) {
+        if (Integer.MAX_VALUE > configuration.get().warningLevel3) {
             warningLevels++;
         }
-        if (Integer.MAX_VALUE > configuration.hq10) {
+        if (Integer.MAX_VALUE > configuration.get().hq10) {
             warningLevels++;
         }
-        if (Integer.MAX_VALUE > configuration.hq100) {
+        if (Integer.MAX_VALUE > configuration.get().hq100) {
             warningLevels++;
         }
-        if (Integer.MAX_VALUE > configuration.hqhqExtereme) {
+        if (Integer.MAX_VALUE > configuration.get().hqhqExtereme) {
             warningLevels++;
         }
         return warningLevels;
@@ -209,28 +201,29 @@ public class PegelOnlineHandler extends BaseThingHandler {
 
     @Override
     public void initialize() {
-        configuration = getConfigAs(PegelOnlineConfiguration.class);
-        if (Integer.MAX_VALUE != configuration.warningLevel1) {
-            warnLevels.add(configuration.warningLevel1);
+        PegelOnlineConfiguration config = getConfigAs(PegelOnlineConfiguration.class);
+        configuration = Optional.of(config);
+        if (Integer.MAX_VALUE != configuration.get().warningLevel1) {
+            warnLevels.add(configuration.get().warningLevel1);
         }
-        if (Integer.MAX_VALUE != configuration.warningLevel2) {
-            warnLevels.add(configuration.warningLevel2);
+        if (Integer.MAX_VALUE != configuration.get().warningLevel2) {
+            warnLevels.add(configuration.get().warningLevel2);
         }
-        if (Integer.MAX_VALUE != configuration.warningLevel3) {
-            warnLevels.add(configuration.warningLevel3);
+        if (Integer.MAX_VALUE != configuration.get().warningLevel3) {
+            warnLevels.add(configuration.get().warningLevel3);
         }
-        if (Integer.MAX_VALUE > configuration.hq10) {
-            warnLevels.add(configuration.hq10);
+        if (Integer.MAX_VALUE > configuration.get().hq10) {
+            warnLevels.add(configuration.get().hq10);
         }
-        if (Integer.MAX_VALUE > configuration.hq100) {
-            warnLevels.add(configuration.hq100);
+        if (Integer.MAX_VALUE > configuration.get().hq100) {
+            warnLevels.add(configuration.get().hq100);
         }
-        if (Integer.MAX_VALUE > configuration.hqhqExtereme) {
-            warnLevels.add(configuration.hqhqExtereme);
+        if (Integer.MAX_VALUE > configuration.get().hqhqExtereme) {
+            warnLevels.add(configuration.get().hqhqExtereme);
         }
-        stationUUID = configuration.uuid;
-        schedule = Optional
-                .of(scheduler.scheduleWithFixedDelay(this::measure, 0, configuration.refreshInterval, TimeUnit.MINUTES));
+        stationUUID = configuration.get().uuid;
+        schedule = Optional.of(scheduler.scheduleWithFixedDelay(this::measure, 0, configuration.get().refreshInterval,
+                TimeUnit.MINUTES));
     }
 
     @Override
