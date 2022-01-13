@@ -70,21 +70,20 @@
 	<channel-type id="trend-channel">
 		<item-type>String</item-type>
 		<label>Water Level Trend</label>
-		<state pattern="%d" readOnly="true"/>
 	</channel-type>
 	<channel-type id="level-channel">
 		<item-type>String</item-type>
 		<label>Actual Level</label>
-		<state pattern="%d" readOnly="true"/>
-	</channel-type>
-	<channel-type id="warning-levels-channel">
-		<item-type>Number:Dimensionless</item-type>
-		<label>Available Warning Levels</label>
-		<state readOnly="true"/>
-	</channel-type>
-	<channel-type id="actual-warning-level-channel">
-		<item-type>Number:Dimensionless</item-type>
-		<label>Actual Warning Level</label>
-		<state readOnly="true"/>
+		<state readOnly="true">
+        <options>
+            <option value="warningLevel1">-</option>
+            <option value="warningLevel1">Warning Level 1</option>
+            <option value="warningLevel2">Warning Level 2</option>
+            <option value="warningLevel3">Warning Level 3</option>
+            <option value="hq10">Frequent Flooding</option>
+            <option value="hq100">Decade Flooding</option>
+            <option value="hqExtreme">Extreme Flooding</option>
+        </options>
+</state>
 	</channel-type>
 </thing:thing-descriptions>

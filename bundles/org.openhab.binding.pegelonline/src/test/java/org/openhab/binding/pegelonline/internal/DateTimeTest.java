@@ -10,14 +10,19 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.pegelonline.internal.util;
+package org.openhab.binding.pegelonline.internal;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 import static org.openhab.binding.pegelonline.internal.PegelOnlineBindingConstants.GSON;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jetty.client.HttpClient;
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.pegelonline.internal.dto.Measure;
+import org.openhab.binding.pegelonline.internal.util.FileReader;
 import org.openhab.core.library.types.DateTimeType;
+import org.openhab.core.thing.Thing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,5 +42,17 @@ class DateTimeTest {
         Measure m = GSON.fromJson(content, Measure.class);
         DateTimeType dtt = DateTimeType.valueOf(m.timestamp);
         logger.info("DateTimeType {}", dtt.toFullString());
+    }
+
+    @Test
+    public void testWarningLevels() {
+        PegelOnlineConfiguration config = new PegelOnlineConfiguration();
+        PegelOnlineHandler handler = new PegelOnlineHandler(mock(Thing.class), mock(HttpClient.class));
+        handler.updateConfiguration(config);
+        Measure m = new Measure();
+        m.value = 1000;
+        assertEquals(PegelOnlineBindingConstants.HYPHEN, handler.getWarnLevel(m), "No Warn Level");
+        config.warningLevel2 = 100;
+        System.out.println(handler.getWarnLevel(m));
     }
 }

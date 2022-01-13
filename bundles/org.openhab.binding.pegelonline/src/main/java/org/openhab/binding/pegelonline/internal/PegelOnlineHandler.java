@@ -14,8 +14,6 @@ package org.openhab.binding.pegelonline.internal;
 
 import static org.openhab.binding.pegelonline.internal.PegelOnlineBindingConstants.*;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
@@ -55,9 +53,8 @@ public class PegelOnlineHandler extends BaseThingHandler {
 
     private static final String STATIONS_URI = "https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations";
     private final Logger logger = LoggerFactory.getLogger(PegelOnlineHandler.class);
-    private final List<Integer> warnLevels = new ArrayList<Integer>();
     private Optional<PegelOnlineConfiguration> configuration = Optional.empty();
-    private Optional<ScheduledFuture> schedule = Optional.empty();
+    private Optional<ScheduledFuture<?>> schedule = Optional.empty();
     private HttpClient httpClient;
     private String stationUUID = UNKNOWN;
     private Optional<Measure> cache = Optional.empty();
@@ -95,27 +92,7 @@ public class PegelOnlineHandler extends BaseThingHandler {
             ContentResponse cr = httpClient.GET(STATIONS_URI + "/" + stationUUID + "/W/currentmeasurement.json");
             Measure m = GSON.fromJson(cr.getContentAsString(), Measure.class);
             if (m != null) {
-                cache = Optional.of(m);
-                // logger.info("update measure {}", cr.getContentAsString());
-
-                QuantityType<Length> measure = QuantityType.valueOf(m.value, MetricPrefix.CENTI(SIUnits.METRE));
-                updateChannelState(MEASURE_CHANNEL, measure);
-
-                StringType trend = StringType.valueOf(getTrend(m));
-                updateChannelState(TREND_CHANNEL, trend);
-
-                DateTimeType timestamp = DateTimeType.valueOf(m.timestamp);
-                updateChannelState(TIMESTAMP_CHANNEL, timestamp);
-
-                StringType level = StringType.valueOf(getLevel(m));
-                updateChannelState(LEVEL_CHANNEL, level);
-
-                DecimalType warningLevels = DecimalType.valueOf(Integer.toString(getWarnLevels()));
-                updateChannelState(WARNING_LEVELS_CHANNEL, warningLevels);
-
-                DecimalType actualWarnLevel = DecimalType.valueOf(Integer.toString(getWarnLevel(m)));
-                updateChannelState(ACTUAL_WARNING_LEVEL_CHANNEL, actualWarnLevel);
-
+                updateChannels(m);
                 updateStatus(ThingStatus.ONLINE);
             }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -123,50 +100,40 @@ public class PegelOnlineHandler extends BaseThingHandler {
         }
     }
 
-    private int getWarnLevel(Measure m) {
-        int warningLevel = 0;
-        if (m.value > configuration.get().warningLevel1) {
-            warningLevel++;
-        }
-        if (m.value > configuration.get().warningLevel2) {
-            warningLevel++;
-        }
-        if (m.value > configuration.get().warningLevel3) {
-            warningLevel++;
-        }
-        if (m.value > configuration.get().hq10) {
-            warningLevel++;
-        }
-        if (m.value > configuration.get().hq100) {
-            warningLevel++;
-        }
-        if (m.value > configuration.get().hqhqExtereme) {
-            warningLevel++;
-        }
-        return warningLevel;
+    public void updateChannels(Measure m) {
+        cache = Optional.of(m);
+        // logger.info("update measure {}", cr.getContentAsString());
+
+        QuantityType<Length> measure = QuantityType.valueOf(m.value, MetricPrefix.CENTI(SIUnits.METRE));
+        updateChannelState(MEASURE_CHANNEL, measure);
+
+        StringType trend = StringType.valueOf(getTrend(m));
+        updateChannelState(TREND_CHANNEL, trend);
+
+        DateTimeType timestamp = DateTimeType.valueOf(m.timestamp);
+        updateChannelState(TIMESTAMP_CHANNEL, timestamp);
+
+        StringType level = StringType.valueOf(getWarnLevel(m));
+        updateChannelState(LEVEL_CHANNEL, level);
     }
 
-    private int getWarnLevels() {
-        int warningLevels = 0;
-        if (Integer.MAX_VALUE > configuration.get().warningLevel1) {
-            warningLevels++;
+    String getWarnLevel(Measure m) {
+        if (m.value < configuration.get().warningLevel1) {
+            return HYPHEN;
+        } else if (m.value < configuration.get().warningLevel2) {
+            return WARN_LEVEL_1;
+        } else if (m.value < configuration.get().warningLevel3) {
+            return WARN_LEVEL_2;
+        } else if (m.value < configuration.get().hq10) {
+            return WARN_LEVEL_3;
+        } else if (m.value > configuration.get().hq100) {
+            return HQ10;
+        } else if (m.value > configuration.get().hqhqExtereme) {
+            return HQ100;
+        } else {
+            return HQ_EXTREME;
         }
-        if (Integer.MAX_VALUE > configuration.get().warningLevel2) {
-            warningLevels++;
-        }
-        if (Integer.MAX_VALUE > configuration.get().warningLevel3) {
-            warningLevels++;
-        }
-        if (Integer.MAX_VALUE > configuration.get().hq10) {
-            warningLevels++;
-        }
-        if (Integer.MAX_VALUE > configuration.get().hq100) {
-            warningLevels++;
-        }
-        if (Integer.MAX_VALUE > configuration.get().hqhqExtereme) {
-            warningLevels++;
-        }
-        return warningLevels;
+
     }
 
     private String getTrend(Measure m) {
@@ -185,42 +152,14 @@ public class PegelOnlineHandler extends BaseThingHandler {
         return trend;
     }
 
-    private String getLevel(Measure m) {
-        String level = UNKNOWN;
-        String low = m.stateMnwMhw;
-        String high = m.stateNswHsw;
-        if (low.equals(LEVEL_LOW)) {
-            return LEVEL_LOW;
-        } else if (low.equals(LEVEL_NORMAL)) {
-            return LEVEL_NORMAL;
-        } else if (high.equals(LEVEL_HIGH)) {
-            return LEVEL_HIGH;
-        }
-        return level;
+    void updateConfiguration(PegelOnlineConfiguration config) {
+        configuration = Optional.of(config);
     }
 
     @Override
     public void initialize() {
         PegelOnlineConfiguration config = getConfigAs(PegelOnlineConfiguration.class);
-        configuration = Optional.of(config);
-        if (Integer.MAX_VALUE != configuration.get().warningLevel1) {
-            warnLevels.add(configuration.get().warningLevel1);
-        }
-        if (Integer.MAX_VALUE != configuration.get().warningLevel2) {
-            warnLevels.add(configuration.get().warningLevel2);
-        }
-        if (Integer.MAX_VALUE != configuration.get().warningLevel3) {
-            warnLevels.add(configuration.get().warningLevel3);
-        }
-        if (Integer.MAX_VALUE > configuration.get().hq10) {
-            warnLevels.add(configuration.get().hq10);
-        }
-        if (Integer.MAX_VALUE > configuration.get().hq100) {
-            warnLevels.add(configuration.get().hq100);
-        }
-        if (Integer.MAX_VALUE > configuration.get().hqhqExtereme) {
-            warnLevels.add(configuration.get().hqhqExtereme);
-        }
+        updateConfiguration(config);
         stationUUID = configuration.get().uuid;
         schedule = Optional.of(scheduler.scheduleWithFixedDelay(this::measure, 0, configuration.get().refreshInterval,
                 TimeUnit.MINUTES));
